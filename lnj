@@ -1,0 +1,146 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use File::Find;
+#use File::stat;
+use Digest::MD5;
+use Fcntl ':mode';
+
+# FIXME: switches to be implemented l8ter
+# args are taken as filenames; always works recursively from cwd
+# FIXME: glob in fnames to be implemented l8ter
+
+my @trove;
+my %trove;
+my $name;
+my %names;
+my $master_name;
+
+########################### functions ###########################
+
+# necessary for File::Find
+# asses if file name is looked-for; remember it in that case
+# variant for one name
+sub wanted_scal {
+  if( $_ eq $name ) {
+    push @trove, $File::Find::name;
+  }
+}
+
+# variant for multiple names
+sub wanted_hash {
+  if( exists $names{$_} ) {
+    push @trove, $File::Find::name;
+  }
+}
+
+############################# main ##############################
+
+# search through file system - variant wirh multiple names
+if( (scalar @ARGV) == 1 ) {
+  $name = $ARGV[0];
+  find( \&wanted_scal, "." );
+} elsif( (scalar @ARGV) > 1 ) {
+  foreach( @ARGV ) {
+    $names{$_}=1;
+  }
+  find( \&wanted_hash, "." );
+} else {
+  usage();
+  exit 1;
+}
+
+# remember only regular files and only once if already hard linked
+my $ino = -1;
+foreach( @trove ) {
+  my $path = $_;
+  if( -f $path ) {
+    my @st = stat;
+    if( $ino == $st[1] ) {
+      print STDERR "I: $path already is hard link to master - ignoring\n";
+    } else {
+      $trove{$path} = \@st;
+    }
+    if( $ino == -1 ) {
+      $ino = $st[1];
+      $master_name = $path;
+      print STDERR "I: chose $master_name as master\n";
+    }
+  } else {  # not -f
+    print STDERR "W: $path not a regular file - ignoring\n";
+  }
+}
+
+# exit without error, if only one real file (or none)
+if( 1 >= (scalar keys %trove) ) {
+  print STDERR "I: only one file found - exiting\n";
+  exit 0;
+}
+
+# bail out on different file sizes
+my $siz = -1;
+foreach( keys %trove ) {
+  my $path = $_;
+  my @st = @{$trove{$path}};
+  $siz = $st[7] if( $siz == -1 );
+  if( $siz != $st[7] ) {
+    print STDERR "E: files differ in size - exiting\n";
+    foreach( keys %trove ) {
+      my @st = @{$trove{$path}};
+      printf ".. %10d %s\n", $st[7], $_;
+    }
+    exit 1;
+  }
+}
+
+# bail out on zero file size
+if( $siz == 0 ) {
+  print STDERR "W: will not work on zero-sized files - exiting\n";
+  exit 1;
+}
+
+# bail out on different md5 sums
+my $sum1 = "";
+my %sums;
+my $fail = 0;
+foreach( keys %trove ) {
+  my $path = $_;
+  open( my $fh, '<', $path ) or die( "E: can't open $path: $!" );
+  binmode( $fh );
+  my $sum = Digest::MD5->new->addfile($fh)->hexdigest;
+  close $fh;
+  $sum1 = $sum if( $sum1 eq "" );
+  $fail = 1 if( $sum ne $sum1 );
+  $sums{$path} = $sum;
+}
+if( $fail != 0 ) {
+  print STDERR "E: files differ in content - exiting\n";
+  foreach( keys %trove ) {
+    printf ".. %s %s\n", $sums{$_}, $_;
+  }
+  exit 1;
+}
+
+# we can be quite sure now that files are identical - ask user
+print "\nfound the following individual though identical files:\n";
+foreach( keys %trove ) {
+  print "  '$_'\n";
+}
+print "\ndo you want to continue replacing duplicates by hard links? (Y/n): ";
+my $answer = <STDIN>;
+chomp $answer;
+if( "Y" ne $answer ) {
+  print STDERR "I: canceled by user - exiting\n";
+  exit 1;
+}
+
+foreach( keys %trove ) {
+  my $path = $_;
+  if( $path eq $master_name ) {
+    print STDERR "I:  kept '$path'\n";
+  } else {
+    unlink $path or die "can't unlink '$path'";
+    link $master_name, $path or die "can't link '$path' to '$master_name'";
+    print STDERR "I:  linked '$path' to '$master_name'\n";
+  }
+}
