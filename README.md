@@ -11,9 +11,11 @@ Usage:
 ------
 
 cd to the common parent dir of all files you'd like to link
+
 call lnj with all filenames to consider; these filenames must not be used for other files
 
 example:
 
-cd ~/.eclipse
+cd ~/.eclipse ;
+
 lnj ecplipse_update_120.jpg
