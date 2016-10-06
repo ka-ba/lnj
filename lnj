@@ -86,8 +86,9 @@ foreach( keys %trove ) {
   if( $siz != $st[7] ) {
     print STDERR "E: files differ in size - exiting\n";
     foreach( keys %trove ) {
-      my @st = @{$trove{$path}};
-      printf ".. %10d %s\n", $st[7], $_;
+      my $path2 = $_;
+      my @st = @{$trove{$path2}};
+      printf ".. %10d %s\n", $st[7], $path2;
     }
     exit 1;
   }
