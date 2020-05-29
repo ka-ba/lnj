@@ -37,3 +37,9 @@ call extractDigikamPres.pl with file and optional target dir
 extractDigikamPres.pl --target ~/my-pres [jwd]/pres.xml
 
 ls ~/my-pres
+
+# activerel.pl
+treat Hopkins CoViD19 data to show active cases with gnuplot
+
+you'll need data from https://github.com/CSSEGISandData/COVID-19.git
+
