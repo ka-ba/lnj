@@ -9,14 +9,17 @@ Getopt::Long::Configure qw(gnu_getopt);
 
 sub getdata {
   my $line = shift @_;
+  $line =~ s/"[^"]+"/XXX/;
   my @fields = split /\s*,\s*/, $line, -1;
   my $date;
   my $active;
   given( scalar @fields ) {
-    when( 6 ) { undef $date; print "X6 ", $line, "\n"; }
+    when( 6 ) { undef $date; } # ignore silently
     when( 8 ) { $date=$fields[2]; $active=($fields[3]-$fields[4])-$fields[5]; }
     when( 12 ) { $date=$fields[4]; $active=$fields[10]; }
-    when( 13 ) { $date=$fields[4]; $active=$fields[10]; }
+#    when( 13 ) { $date=$fields[4]; $active=$fields[10]; }
+    when( 14 ) { $date=$fields[4]; $active=$fields[10]; }
+#    when( 15 ) { $date=$fields[4]; $active=$fields[10]; }
     default { undef $date; print " X ", $line, "\n"; }
   }
   if( defined $date ) { # fiddle with date
@@ -31,13 +34,6 @@ sub getdata {
 }
 
 #main
-
-my $var;
-print "var ",(defined $var?"def":"undef"),"\n";
-$var='';
-print "var ",(defined $var?"def":"undef"),"\n";
-undef $var;
-print "var ",(defined $var?"def":"undef"),"\n";
 
 my %regions;
 my $base = 10000;
@@ -60,14 +56,12 @@ foreach my $reg (keys %regions) {
 	$actives{$reg} = 0;
 }
 my $date;
-my $active=0;
-my $rlp=0;
 
 while(<>) {
   foreach my $reg (keys %regions) {
   	if( /$reg/ ) {
       my @data = getdata( $_ );
-      if( defined $data[0] ) {
+      if( (defined $data[0]) && ($data[1]>=0) ) { # $data[1]: compensate for strange US county "Recovered" with negative active case numbers >:/
         $date = $data[0];
         $actives{$reg} += ( $data[1] * $base ) / $regions{$reg};
       }
