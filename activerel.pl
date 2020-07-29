@@ -4,6 +4,7 @@ use strict;
 use warnings;
 use v5.16;
 #use Data::Dumper;
+use List::Util qw(maxstr);
 use Getopt::Long qw(GetOptions);
 Getopt::Long::Configure qw(gnu_getopt);
 
@@ -29,7 +30,8 @@ sub getdata {
       undef $date;
     }
   }
-#  print "    ---- ", $date, " -- ", $active, "\n";
+  $active=0 if( $active eq "" );
+#  print "    ---- ", $date, " -- ", $active, "  ---- ", $fields[2], " - ", $fields[3], "\n";
   return ( $date, $active );
 }
 
@@ -55,19 +57,22 @@ my %actives;
 foreach my $reg (keys %regions) {
 	$actives{$reg} = 0;
 }
-my $date;
+my @dates;
 
 while(<>) {
   foreach my $reg (keys %regions) {
   	if( /$reg/ ) {
       my @data = getdata( $_ );
       if( (defined $data[0]) && ($data[1]>=0) ) { # $data[1]: compensate for strange US county "Recovered" with negative active case numbers >:/
-        $date = $data[0];
+        push @dates, $data[0];
         $actives{$reg} += ( $data[1] * $base ) / $regions{$reg};
       }
   	}
   }
   if( eof ) {
+    my $date = maxstr( @dates );
+    @dates = ();
+#    print "    ---- ", $ARGV, " -- ", $date, "\n";
   	if( defined $date ) {
       print DATAFH "$date";
       undef $date;
